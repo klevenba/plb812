@@ -1,0 +1,107 @@
+# Lab 1: Data Formats & Databases 
+
+In this assignment, we will download and format genome, annotation, and RNA-seq data from public databases and repositories. These data will be the basis of some of your future assignments.
+
+## 1. Genome  
+
+1. You will be assigned a plant species & dataset in class to work on.
+2. Using the public databases discussed in Lab Lecture #2, download the genome fasta and corresponding gene annotations for your assigned species. 
+3. Upload these data to MSU HPCC.
+4. If the files are compressed, uncompress them.
+5. Take a screenshot of the downloaded files and the first 10 lines of each file. Rename the screenshot. Place these in the github repository PLB812/lab_assignments/assignment1  
+
+#How to download files from Phytozome
+-Go to https://phytozome-next.jgi.doe.gov/ and log in 
+-Click menu>Genomes>Arabidopsis thaliana Araport11>Download>Ok, proceed to data
+-Select the following files: 
+	Athaliana_447_TAIR10.fa.gz
+	Athaliana_447_Araport11.gene_exons.gff3.gz
+-Click Download>Command line download
+
+#login to hpcc and follow command lines below
+ssh klevenba@gateway.hpcc.msu.edu
+ssh dev-amd20-v100
+cd /plb812/data
+--cookie jgi_session=/api/sessions/c924b02e9b336cc6278e0eb6b17ecbcc --output download.20220920.195224.zip -d "{\"ids\":{\"Phytozome-447\":[\"587b0ada7ded5e4229d885a0\",\"587b0adf7ded5e4229d885ab\"]}}" -H "Content-Type: application/json" https://files.jgi.doe.gov/filedownload/
+unzip download.20220920.195224.zip 
+gunzip Phytozome/PhytozomeV12/early_release/Athaliana_447_Araport11/assembly/Athaliana_447_TAIR10.fa
+gunzip Phytozome/PhytozomeV12/early_release/Athaliana_447_Araport11/annotation/Athaliana_447_Araport11.gene_exons.gff3
+head Phytozome/PhytozomeV12/early_release/Athaliana_447_Araport11/assembly/Athaliana_447_TAIR10.fa
+head Phytozome/PhytozomeV12/early_release/Athaliana_447_Araport11/annotation/Athaliana_447_Araport11.gene_exons.gff3
+
+#upload screenshot following steps below
+-Click "prt sc" button and saves file as 220922_ls_head_Athaliana_fa_gff.png onto local computer Desktop
+-Open new terminal and change working directory to Desktop where .png file is located
+cd Desktop
+git clone https://github.com/klevenba/plb812
+cd plb812
+mkdir lab_assignments
+cd lab_assignments
+mkdir assignment1
+cd ..
+cd ..
+mv 220922_ls_head_Athaliana_fa_gff.png plb812/lab_assignments/assignment1
+git add --all 
+git commit
+git push
+
+
+## 2. RNA-seq data  
+
+1. Identify the samples for your assigned dataset in the NCBI SRA. 
+2. Download the SRR files to the MSU HPCC.  
+3. Convert to a gzipped fastq format. 
+4. Take a screenshot of the downloaded files and the first 10 lines of only one of the fastq files. Place the screenshot in PLB812/lab_assignments/assignment1  
+
+-Go to my assigned dataset link https://www.ncbi.nlm.nih.gov/bioproject/PRJEB8427 
+-Go to "Related Information:">SRA>1. Illumina HiSeq 2000 paired end sequencing; RNA-sequencing data of young developing leaves of 6 Arabidopsis accessions in control and mild drought conditions>All runs
+or
+-Go to https://www.ncbi.nlm.nih.gov/Traces/study/?acc=ERP009505&o=acc_s%3Aa
+#Accession number ERP009505
+-Sort by Environmental_Factor:_ecotype
+-Select all SRA files with Oy0 (Assigned ecotype) and sort by selected 
+	ERR754057
+	ERR754058
+	ERR754068
+	ERR754074
+	ERR754078
+	ERR754086
+	ERR754089
+#login to hpcc
+ssh klevenba@gateway.hpcc.msu.edu
+ssh dev-amd20-v100
+cd plb812/data
+conda activate plb812
+fasterq-dump --split-3 ERR754057
+fasterq-dump --split-3 ERR754058
+fasterq-dump --split-3 ERR754068
+fasterq-dump --split-3 ERR754074
+fasterq-dump --split-3 ERR754078
+fasterq-dump --split-3 ERR754086
+fasterq-dump --split-3 ERR754089
+gzip ERR754057_1.fastq
+gzip ERR754057_2.fastq
+gzip ERR754058_1.fastq
+gzip ERR754058_2.fastq
+gzip ERR754068_1.fastq
+gzip ERR754068_2.fastq
+gzip ERR754074_1.fastq
+gzip ERR754074_2.fastq
+gzip ERR754078_1.fastq
+gzip ERR754078_2.fastq
+gzip ERR754086_1.fastq
+gzip ERR754086_2.fastq
+gzip ERR754089_1.fastq
+head ERR754089_2.fastq
+gzip ERR754089_2.fastq
+
+#upload screenshot following steps below
+-Click "prt sc" button and saves file as 220922_gzipped_fastq_Athaliana_Oy0.png onto local computer Desktop directory
+-Open new terminal and change working directory to Desktop where .png file is located
+
+cd Desktop
+mv 220922_gzipped-head_fastq_Athaliana_Oy0.png plb812/lab_assignments/assignment1
+cd /plb812/lab_assignments/assignment1
+git add --all 
+git commit
+git push

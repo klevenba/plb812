@@ -1,0 +1,73 @@
+#Assignment 4
+
+ssh klevenba@gateway.hpcc.msu.edu
+ssh dev-intel14-k20
+conda activate plb812
+conda install -c bioconda hisat2
+conda install -c bioconda samtools
+conda install -c bioconda gffread
+cd plb812/data
+
+#Convert .gff file from assignment 1 to .gtf file
+gffread --gtf Athaliana_447_Araport11.gene_exons.gff3 > gene_exons.gtf
+
+#Build an index that incorporate exons and splice sites from gene_exons.gtf file and the A thaliana genome from assignment 1
+hisat2_extract_splice_sites.py gene_exons.gtf > splicesites.tsv
+hisat2_extract_exons.py gene_exons.gtf > exons.tsv
+hisat2-build -p 8 --ss splicesites.tsv --exon exons.tsv Athaliana_447_TAIR10.fa Athaliana_447_TAIR10_index
+
+ls
+#Press 'PRT SC' to take a screenshot of the 8 index files (.ht2) created and save .png file to local Desktop
+
+#Align sequence data back to genome index
+
+touch run_hisat2.sh
+vim run_hisat2.sh
+#Press'I'
+
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=10
+#SBATCH --mem=100GB
+#SBATCH --job-name assignment4c
+#SBATCH --output=%x-%j.SLURMout
+
+#Change to current working directory
+cd ${PBS_O_WORKDIR}
+
+#Add conda environment to the path
+export PATH="${HOME}/miniconda3/envs/plb812/bin:${PATH}"
+export LD_LIBRARY_PATH="${HOME}/miniconda3/envs/plb812/lib:${LD_LIBRARY_PATH}"
+
+#Align paired end data using 10 threads with the index created above and the paired trimmed sequencing reads from assigment 3 to produce a bam file for each sample
+hisat2 -p 10 -x Athaliana_447_TAIR10_index -1 ERR754057_1P.fastq.gz -2 ERR754057_2P.fastq.gz | samtools view -@ 4 -bh | samtools sort -@ 4 > ERR754057.bam
+hisat2 -p 10 -x Athaliana_447_TAIR10_index -1 ERR754058_1P.fastq.gz -2 ERR754058_2P.fastq.gz | samtools view -@ 4 -bh | samtools sort -@ 4 > ERR754058.bam
+hisat2 -p 10 -x Athaliana_447_TAIR10_index -1 ERR754068_1P.fastq.gz -2 ERR754068_2P.fastq.gz | samtools view -@ 4 -bh | samtools sort -@ 4 > ERR754068.bam
+hisat2 -p 10 -x Athaliana_447_TAIR10_index -1 ERR754074_1P.fastq.gz -2 ERR754074_2P.fastq.gz | samtools view -@ 4 -bh | samtools sort -@ 4 > ERR754074.bam
+hisat2 -p 10 -x Athaliana_447_TAIR10_index -1 ERR754078_1P.fastq.gz -2 ERR754078_2P.fastq.gz | samtools view -@ 4 -bh | samtools sort -@ 4 > ERR754078.bam
+hisat2 -p 10 -x Athaliana_447_TAIR10_index -1 ERR754086_1P.fastq.gz -2 ERR754086_2P.fastq.gz | samtools view -@ 4 -bh | samtools sort -@ 4 > ERR754086.bam
+hisat2 -p 10 -x Athaliana_447_TAIR10_index -1 ERR754089_1P.fastq.gz -2 ERR754089_2P.fastq.gz | samtools view -@ 4 -bh | samtools sort -@ 4 > ERR754089.bam
+
+#Press 'ESC' 
+
+:w
+:x
+sbatch run_hisat2.sh
+#Submitted batch job 63805650
+
+vim assigment4c-63805650.SLURMout
+#Record the total number & percentage of reads/read pairs and number & percentag of uniquely aligned reads/read_pairs for each sample in a table named 'alignment_stats' and save excel file to local Desktop
+
+#Open new terminal and change working directory to Desktop
+
+cd Desktop
+mv index_files.png plb812/lab_assignments/assignment4
+mv alignment_stats.xlsx plb812/lab_assignments/assignment4
+mv methods.txt plb812/lab_assignments/assignment4
+
+cd plb812/lab_assignments
+git add --all 
+git commit
+git push

@@ -1,0 +1,95 @@
+#Assignment 5 methods.txt
+
+#Follow the steps below for extracting out the read counts per gene from an annotation file in tables for each sample below based on input files being sorted in a position order on a stranded library in a bam format
+ssh klevenba@gateway.hpcc.msu.edu
+ssh dev-intel14-k20
+conda activate plb812
+conda install -c bioconda htseq
+y
+cd plb812/data
+htseq-count -f bam -r pos -s yes ERR754057.bam gene_exons.gtf > Control-1.txt 
+htseq-count -f bam -r pos -s yes ERR754058.bam gene_exons.gtf > Control-2.txt 
+htseq-count -f bam -r pos -s yes ERR754068.bam gene_exons.gtf > Control-3.txt
+htseq-count -f bam -r pos -s yes ERR754078.bam gene_exons.gtf > Control-4.txt  
+htseq-count -f bam -r pos -s yes ERR754074.bam gene_exons.gtf > Drought-1.txt 
+htseq-count -f bam -r pos -s yes ERR754086.bam gene_exons.gtf > Drought-2.txt 
+htseq-count -f bam -r pos -s yes ERR754089.bam gene_exons.gtf > Drought-3.txt 
+mv Control-1.txt /mnt/home/klevenba/plb812/lab_assignments/assignment5
+mv Control-2.txt /mnt/home/klevenba/plb812/lab_assignments/assignment5
+mv Control-3.txt /mnt/home/klevenba/plb812/lab_assignments/assignment5
+mv Control-4.txt /mnt/home/klevenba/plb812/lab_assignments/assignment5
+mv Drought-1.txt /mnt/home/klevenba/plb812/lab_assignments/assignment5
+mv Drought-2.txt /mnt/home/klevenba/plb812/lab_assignments/assignment5
+mv Drought-3.txt /mnt/home/klevenba/plb812/lab_assignments/assignment5
+git add assignment5
+git commit
+git push
+
+#Open new terminal and change working directory to plb812 repository on local computer
+cd Desktop/plb812
+git pull
+
+#Set working directory to /home/mobaxterm/Desktop/plb812/lab_assignments
+#list files in directory
+sampleFiles <- list.files("assignment5")
+
+#Create a sampleTable from the file names
+sampleTable <- data.frame(sampleName = sub(".txt","",sampleFiles),
+                          fileName = sampleFiles,
+                          treatment = sub("-..txt","",sampleFiles))
+#Set the treatment column to factor 
+sampleTable$treatment <- factor(sampleTable$treatment)
+#Load DESeq2
+library(DESeq2)
+
+#Create the DESeq2 object from the HTSeqCount Tables
+dds <- DESeqDataSetFromHTSeqCount(sampleTable = sampleTable,
+                                  directory = "assignment5",
+                                  design = ~ treatment)
+
+#Change factor levels so Control is considered the reference treatment
+dds$treatment <- relevel(dds$treatment, ref = "Control")
+
+#Prefilter out genes if the read counts are less than 10
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep,]
+head(keep)
+table(keep)
+
+#Estimate Size Factor - library size
+dds <- estimateSizeFactors(dds)
+
+#Show the library size adjustment
+dds$sizeFactor
+
+#Estimate the dispersion per gene
+dds <- estimateDispersions(dds)
+
+#Variance stabilizing transformation 
+vsd <- vst(dds, blind=FALSE)
+rld <- rlog(dds, blind=FALSE)
+
+#Calculate distance between samples
+sampleDist <- dist(t(assay(vsd)))
+
+#Call DE genes using the Wald test
+dds <- nbinomWaldTest(dds)
+results(dds, contrast=c("treatment", "Control", "Drought"))
+
+#Extract results for a pairwise contrast
+resultsTable <- as.data.frame(results(dds, contrast=c("treatment", "Control", "Drought")))
+head(resultsTable)
+
+#Show how many genes padj <0.05
+nrow(na.omit(resultsTable[resultsTable$padj < 0.05,]))
+#ONLY TWO DEGs (Differentially expressed genes) when p value cutoff of 0.05 is set
+
+#Volcano plot
+plotMA(results(dds, contrast=c("treatment", "Control", "Drought")), ylim=c(-2,2))
+#Save plot as maplot.png
+
+mv maplot.png plb812/lab_assignments/assignment5
+mv methods.txt plb812/lab_assignments/assignment5
+git add assignment5
+git commit
+git push

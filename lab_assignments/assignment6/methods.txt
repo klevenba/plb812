@@ -1,0 +1,109 @@
+#Assignment 6 methods.txt
+
+#Follow the steps below for downloading/wrangling the annotation file for A. thaliana goTerms into a format suitable for the topGO R package
+ssh klevenba@gateway.hpcc.msu.edu
+ssh dev-intel14-k20
+conda activate plb812
+cd plb812
+git pull
+cd data
+curl --cookie jgi_session=/api/sessions/40bcc2dcd565f2ef831316792674d586 --output download.20221030.193919.zip -d "{\"ids\":{\"Phytozome-447\":[\"587b0add7ded5e4229d885a7\"]}}" -H "Content-Type: application/json" https://files.jgi.doe.gov/filedownload/
+unzip download.20221030.193919.zip
+mv /mnt/home/klevenba/plb812/data/Phytozome/PhytozomeV12/early_release/Athaliana_447_Araport11/annotation/Athaliana_447_Araport11.annotation_info.txt /mnt/home/klevenba/plb812/data/
+cut -f2,10 Athaliana_447_Araport11.annotation_info.txt | head 
+cut -f2 Athaliana_447_Araport11.annotation_info.txt | sed '1d' | sort | uniq > gene_list
+cat gene_list | while read line
+> do
+> terms=$(grep $line Athaliana_447_Araport11.annotation_info.txt | cut -f10 | tr ',' '\n' | sort | uniq | sed '/^$/d' | tr '\n' ',' | sed 's/\,$//')
+> echo "$line $terms" | tr ' ' '\t' | sed 's/\,/\,\ /g' >> Athaliana_topGO.tsv
+> done
+mv Athaliana_topGO.tsv /mnt/home/klevenba/plb812/lab_assignments/assignment6
+git add assignment6
+git commit
+git push
+
+#Open new terminal and change working directory to plb812 repository on local computer
+cd Desktop/plb812
+git pull
+
+#Open RStudio application on local computer
+#Create a function for making a table of results for two conditions from dds
+makeResultsTable <- function(x,compFactor,conditionA,conditionB,lfcThreshold=0,filter=FALSE){
+  require(DESeq2)
+  bml <- sapply(levels(dds@colData[,compFactor]),function(lvl) rowMeans(counts(dds,
+                                                                               normalized=TRUE)[,dds@colData[,compFactor] == lvl]))
+  bml <- as.data.frame(bml)
+  y <- results(x,contrast=c(compFactor,conditionA,conditionB),
+               lfcThreshold=lfcThreshold,independentFiltering=filter)
+  y <- data.frame(id=gsub(pattern = "gene:",replacement = "",row.names(y)),
+                  sampleA=c(conditionA),sampleB=c(conditionB),
+                  baseMeanA=bml[,conditionA],baseMeanB=bml[,conditionB],
+                  log2FC=y$log2FoldChange,pval=y$pvalue,padj=y$padj)
+  row.names(y) <- c(1:nrow(y))
+  return(y)
+}
+#Make new results table from assignment #5 data 
+res <- makeResultsTable(dds,"treatment","Control","Drought",lfcThreshold=0,filter=TRUE)
+head(res)
+#Remove id name extra lettering to match gene annotation file format
+res$id <- sub('.Araport11.447','',res$id)
+head(res)
+
+#Format higher expressed genes with no log2 fold change cutoff using pvalue as there are 188 DEGs usig pvalue<0.05
+upGenes <- factor(as.integer(res$id %in% res[res$pval < 0.05 & res$log2FC > 0,]$id))
+names(upGenes) <- res$id
+table(upGenes)
+
+#Format lower expressed genes with no log2 fold change cutoff using pvalue as there are 188 DEGs usig pvalue<0.05
+downGenes <- factor(as.integer(res$id %in% res[res$pval < 0.05 & res$log2FC < 0,]$id))
+names(downGenes) <- res$id
+table(downGenes)
+
+#Set working directory to the cloned github repository in /Desktop/plb812/lab_assignments/assignment6 
+#Install topGO
+library(BiocManager)
+BiocManager::install("topGO")
+#Automatically installed GO.db when topGO was installed
+
+#Read in the goTerms
+goTerms <- readMappings(file="Athaliana_topGO.tsv")
+head(goTerms)
+
+#GO term Enrichment for Biological Process in upGenes
+BP <- new("topGOdata",description="Biological Process",ontology="BP",
+          allGenes=upGenes,annot=annFUN.gene2GO,nodeSize=3,gene2GO=goTerms)
+FisherBP <- runTest(BP,algorithm="parentchild",statistic="fisher")
+BPgenTable <- GenTable(BP,Fisher=FisherBP,ranksOf="Fisher",
+                       topNodes=length(score(FisherBP)))
+head(BPgenTable)
+#Export BP table for upGenes
+write.table(BPgenTable,"higher_expressed_BP.tsv",sep="\t",quote=FALSE)
+#Repeat with downGenes for "lower_expressed_BP.tsv"
+
+#GO term Enrichment for Molecular Function in upGenes
+MF <- new("topGOdata",description="Molecular Function",ontology="MF",
+          allGenes=upGenes,annot=annFUN.gene2GO,nodeSize=3,gene2GO=goTerms)
+FisherMF <- runTest(MF,algorithm="parentchild",statistic="fisher")
+MFgenTable <- GenTable(MF,Fisher=FisherMF,ranksOf="Fisher",
+                       topNodes=length(score(FisherMF)))
+#Export MF table for upGenes
+write.table(MFgenTable,"higher_expressed_MF.tsv",sep="\t",quote=FALSE)
+#Repeat with downGenes for "lower_expressed_MF.tsv"
+
+#GO term Enrichment for Cellular Component in upGenes
+CC <- new("topGOdata",description="Cellular Component",ontology="CC",
+          allGenes=upGenes,annot=annFUN.gene2GO,nodeSize=3,gene2GO=goTerms)
+FisherCC <- runTest(CC,algorithm="parentchild",statistic="fisher")
+CCgenTable <- GenTable(CC,Fisher=FisherCC,ranksOf="Fisher",
+                       topNodes=length(score(FisherCC)))
+#Export CC table for upGenes
+write.table(CCgenTable,"higher_expressed_CC.tsv",sep="\t",quote=FALSE)
+#Repeat with downGenes for "lower_expressed_CC.tsv"
+
+#For upregulated genes there were 593 enriched GO terms found in Biological Processes (BP), 658 enriched GO terms found in Molecular Functions (MF), and 202 enriched GO terms found in Cellular Component (CC)
+#For downregulated genes there were 593 enriched GO terms found in Biological Processes (BP), 658 enriched GO terms found in Molecular Functions (MF), and 202 enriched GO terms found in Cellular Component (CC)
+
+#Create this methods.txt file and save it in the cloned github repository /klevenba/plb812/lab_assignments/assignment6 on a local computer
+git add assignment6
+git commit
+git push

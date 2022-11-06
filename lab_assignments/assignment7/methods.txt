@@ -1,0 +1,188 @@
+#Assignment 7 methods.text file
+###1 Download SRA acession SRR492407 and convert to fastq
+ssh klevenba@gateway.hpcc.msu.edu
+ssh dev-intel14-k20
+conda activate plb812
+cd plb812/data
+fasterq-dump --split-3 SRR492407
+gzip SRR492407_1.fastq
+gzip SRR492407_2.fastq
+
+
+
+###2 Trim your reads
+#Assess the quality of the data
+touch run_fastqc_2.sh
+vim run_fastqc_2.sh
+#Press 'I'
+
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=6
+#SBATCH --mem=100GB
+#SBATCH --job-name assignment7
+#SBATCH --output=%x-%j.SLURMout
+
+#Change to current working directory
+cd ${PBS_O_WORKDIR}
+
+#Add conda environment to the path
+export PATH="${HOME}/miniconda3/envs/plb812/bin:${PATH}"
+export LD_LIBRARY_PATH="${HOME}/miniconda3/envs/plb812/lib:${LD_LIBRARY_PATH}"
+
+#Assess the quality of data
+fastqc -t 6 -f fastq -o /mnt/home/klevenba/plb812/data SRR492407_1.fastq.gz SRR492407_2.fastq.gz
+
+#Press 'Esc'
+:w
+:x
+sbatch run_fastqc_2.sh
+#Submitted batch job 64684468
+mv SRR492407_1_fastqc.html /mnt/home/klevenba/plb812/lab_assignments/assignment7
+mv SRR492407_2_fastqc.html /mnt/home/klevenba/plb812/lab_assignments/assignment7
+git add assignment7
+git commit
+git push
+#Open new terminal and change working directory to plb812 repository on local computer
+cd Desktop/plb812
+git pull
+#Double click on SRR492407_1_fastqc.html and SRR492407_2_fastqc.html in assignment7 to assess data downloaded
+#Open a new terminal and login to hpcc 
+ssh klevenba@gateway.hpcc.msu.edu
+ssh dev-intel14-k20
+conda activate plb812
+cd plb812/data
+touch run_trimmomatic_fastqc_2.sh
+vim run_trimmomatic_fastqc_2.sh
+#Press 'I'
+
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=6
+#SBATCH --mem=100GB
+#SBATCH --job-name assignment7a
+#SBATCH --output=%x-%j.SLURMout
+
+#Change to current working directory
+cd ${PBS_O_WORKDIR}
+
+#Add conda environment to the path
+export PATH="${HOME}/miniconda3/envs/plb812/bin:${PATH}"
+export LD_LIBRARY_PATH="${HOME}/miniconda3/envs/plb812/lib:${LD_LIBRARY_PATH}"
+
+#Trim the data by removing the trailing low quality or N bases (below quality 25), and drop reads which are less than 30 bases long after these steps
+trimmomatic PE -threads 6 -phred33 SRR492407_1.fastq.gz SRR492407_2.fastq.gz SRR492407_1P.fastq.gz SRR492407_1U.fastq.gz SRR492407_2P.fastq.gz SRR492407_2U.fastq.gz TRAILING:25 MINLEN:30
+
+#Assess the quality of trimmed data
+fastqc -t 6 -f fastq -o /mnt/home/klevenba/plb812/data SRR492407_1P.fastq.gz SRR492407_2P.fastq.gz
+
+#Press 'Esc' 
+:w
+:x
+sbatch run_trimmomatic_fastqc_2.sh
+#Submitted batch job 64710166
+mv SRR492407_1P_fastqc.html /mnt/home/klevenba/plb812/lab_assignments/assignment7
+mv SRR492407_2P_fastqc.html /mnt/home/klevenba/plb812/lab_assignments/assignment7
+git add assignment7
+git commit
+git push
+#Open new terminal and change working directory to plb812 repository on local computer
+cd Desktop/plb812
+git pull
+#Double click on SRR492407_1P_fastqc.html and SRR492407_2P_fastqc.html in assignment7 to assess trimmed data
+#Open a new terminal and login to hpcc 
+ssh klevenba@gateway.hpcc.msu.edu
+ssh dev-intel14-k20
+conda activate plb812
+cd plb812/data
+#Install bwa
+conda search -c bioconda bwa
+conda install -c bioconda bwa
+y
+#Create an index for alignment with BWA using TAIR10 genome file from Phytozome (originally downloaded in assignment 1)
+bwa index -p Athaliana_bwa_index -a bwtsw Athaliana_447_TAIR10.fa
+
+
+
+##3 Align your reads using BWA
+#Align paired reads back to BWA index created
+touch run_bwa_align.sh
+vim run_bwa_align.sh
+#Press 'I'
+
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=10
+#SBATCH --mem=100GB
+#SBATCH --job-name assignment7b
+#SBATCH --output=%x-%j.SLURMout
+
+#Change to current working directory
+cd ${PBS_O_WORKDIR}
+
+#Add conda environment to the path
+export PATH="${HOME}/miniconda3/envs/plb812/bin:${PATH}"
+export LD_LIBRARY_PATH="${HOME}/miniconda3/envs/plb812/lib:${LD_LIBRARY_PATH}"
+
+#Align trimmed paired reads to BWA index
+bwa mem -t 10 Athaliana_bwa_index SRR492407_1P.fastq.gz SRR492407_2P.fastq.gz | samtools view -@ 4 -bh | samtools sort -@ 4 > SRR492407.bam
+
+#Press 'Esc'
+:w
+:x
+sbatch run_bwa_align.sh
+#Submitted job batch 64714947
+#Get mapping stats using samtools flagstats
+touch run_samtools_flagstat.sh
+vim run_samtools_flagstat.sh
+#Press 'I'
+
+#!/bin/bash --login
+#SBATCH --time=04:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=100GB
+#SBATCH --job-name assignment7c
+#SBATCH --output=%x-%j.SLURMout
+
+#Change to current working directory
+cd ${PBS_O_WORKDIR}
+
+#Add conda environment to the path
+export PATH="${HOME}/miniconda3/envs/plb812/bin:${PATH}"
+export LD_LIBRARY_PATH="${HOME}/miniconda3/envs/plb812/lib:${LD_LIBRARY_PATH}"
+
+#Samtools flagstats
+samtools flagstat -@ 4 SRR492407.bam > mapping_statistics.flagstat
+
+#Press 'Esc'
+:w
+:x
+sbatch run_samtools_flagstat.sh
+#Submitted job batch 64716272
+
+
+head mapping_statistics.flagstat
+#87514483 + 0 in total (QC-passed reads + QC-failed reads)
+#0 + 0 secondary
+#159595 + 0 supplementary
+#0 + 0 duplicates
+#85358237 + 0 mapped (97.54% : N/A)
+#87354888 + 0 paired in sequencing
+#43677444 + 0 read1
+#43677444 + 0 read2
+#83628212 + 0 properly paired (95.73% : N/A)
+#85002118 + 0 with itself and mate mapped
+
+mv mapping_statistics.flagstat /mnt/home/klevenba/plb812/lab_assignments/assignment7
+#Make this text file in /mnt/home/klevenba/plb812/lab_assignments/assignment7
+git add assignment7
+git commit 
+git push

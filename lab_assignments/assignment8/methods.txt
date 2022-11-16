@@ -1,0 +1,75 @@
+#Assignment 8 methods.txt
+#Install Picard in my plb812 conda environment
+ssh klevenba@gateway.hpcc.msu.edu
+ssh dev-intel14-k20
+conda activate plb812
+conda search -c bioconda picard
+conda install -c bioconda picard
+y
+cd plb812/data
+
+#Mark duplicate reads using picard
+picard MarkDuplicates -I SRR492407.bam -O marked_dup_SRR492407.bam -M marked_dup_metrics.txt
+head marked_dup_metrics.txt
+#Press 'Prt Sc' to take a screen shot of the first 10 lines of marked_dup_metrics.txt 
+#Push screenshot named "marked_dup_metrics_head.png" to my git hub plb812 repository to the assignment8 directory
+
+#Add read groups for GATKA
+picard AddOrReplaceReadGroups -I marked_dup_SRR492407.bam -O read_groups_marked_dup.bam -RGID 1 -RGLB LIB1 -RGPL ILLUMINA -RGPU NA -RGSM WS2
+#Generate a bai index file for gatk to use the newly generated BAM file of reads
+samtools index read_groups_marked_dup.bam
+#Generate a fai index file and a dict dictionary file for gatk to use the reference fasta genome fasta file 
+samtools faidx Athaliana_447_TAIR10.fa
+picard CreateSequenceDictionary R=Athaliana_447_TAIR10.fa O=Athaliana_447_TAIR10.dict
+
+##Install and create a gatk conda environment 
+wget https://github.com/broadinstitute/gatk/releases/download/4.3.0.0/gatk-4.3.0.0.zip
+unzip gatk-4.3.0.0.zip
+conda env create -f gatk-4.3.0.0/gatkcondaenv.yml
+cp -R gatk-4.3.0.0/gatk miniconda3/envs/gatk/bin/
+cp gatk-4.3.0.0/gatk-package-4.3.0.0-local.jar miniconda3/envs/gatk/bin/
+conda activate gatk
+gatk --list
+
+#Make and submit a job script using gatk to call variants 
+vim run_gatk_caller.sh
+touch run_gatk_caller.sh
+#Press 'I'
+
+#!/bin/bash --login
+#SBATCH --time=24:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=100GB
+#SBATCH --job-name assignment8b
+#SBATCH --output=%x-%j.SLURMout
+
+#Change to current working directory
+cd ${PBS_O_WORKDIR}
+
+#Add conda environment to the path
+export PATH="${HOME}/miniconda3/envs/gatk/bin:${PATH}"
+export LD_LIBRARY_PATH="${HOME}/miniconda3/envs/gatk/lib:${LD_LIBRARY_PATH}"
+
+#Calls variants through local assembly
+gatk HaplotypeCaller -R Athaliana_447_TAIR10.fa -I read_groups_marked_dup.bam -O SRR492407_variants_called.vcf
+
+#Press 'Esc'
+:w
+:x
+sbatch run_gatk_caller.sh
+#Total runtime 410.8 minutes
+
+head -20 SRR492407_variants_called.vcf
+#Press 'Prt Sc' to take a screen shot of the first 20 lines of SRR492407_variants_called.vcf
+#Push screenshot named "SRR492407_variants_called_vcf_head20.png" to my git hub plb812 repository to the assignment8 directory
+
+#Use tail SRR492407_variants_called.vcf to check file output is expected since no errors have been reported in the job script's SLURMout file "assignment8b-65194825.SLURMout"
+#Expected means chromosome positions are listed with descriptions (E.g. descriptions: allele frequency, allele counts in reference to alternatives, genotype, etc.)
+#Output vcf file looks good!
+
+#Create this methods text file and push it to my git hub plb812 repository to the assignment8 directory
+git add assignment8
+git commit 
+git push

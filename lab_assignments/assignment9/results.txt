@@ -1,0 +1,7 @@
+#2 code/#result
+wc -l /mnt/home/klevenba/plb812/data/Orthofind/OrthoFinder/Results_Dec01/Phylogenetic_Hierarchical_Orthogroups/N0.tsv
+#17405
+
+#3 code/#result
+grep AT5G13930 /mnt/home/klevenba/plb812/data/Orthofind/OrthoFinder/Results_Dec01/Phylogenetic_Hierarchical_Orthogroups/N0.tsv
+#LOC_Os11g32650.1

@@ -1,0 +1,62 @@
+#Assignment #9 methods
+
+ssh klevenba@gateway.hpcc.msu.edu
+ssh <dev node>
+
+#Install orthofinder in its own environment
+conda config --add channels conda-forge
+conda config --add channels bioconda
+conda create -n orthofinder
+conda activate orthofinder
+conda install orthofinder
+y
+the following new packages will be installed
+y
+vim /mnt/home/klevenba/miniconda3/envs/orthofinder/bin/scripts_of/newick.py 
+#Go to line #208, scroll over to the "U" in "nw = open(newick, 'rU').read()", type i, delete the “U”, hit esc, then type :wq
+
+#Download the primary protein sequences for A thaliana, A trichopoda, and O sativa from Phytozome for orthofinder
+cd plb812/data
+mkdir Orthofind
+curl --cookie jgi_session=/api/sessions/ecc9bdad52b588dfa1fd97eee3f3499a --output download.20221129.183127.zip -d "{\"ids\":{\"Phytozome-291\":[\"539f7ed60d878514c2d0e0f6\"],\"Phytozome-447\":[\"587b0ade7ded5e4229d885aa\"],\"Phytozome-323\":[\"5693356b0d87851ee9726afe\"]}}" -H "Content-Type: application/json" https://files.jgi.doe.gov/filedownload/
+#Decompress and unzip the fasta files and move them to /mnt/home/klevenba/plb812/data/Orthofind/
+touch run_orthofinder.sh
+vim
+#Press 'I'
+#!/bin/bash --login
+#SBATCH --time=2:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=20
+#SBATCH --mem=100GB
+#SBATCH --job-name assignment9d
+#SBATCH --output=%x-%j.SLURMout
+
+#Change to current working directory
+cd ${PBS_O_WORKDIR}
+
+#Add conda environment to the path
+export PATH="${HOME}/miniconda3/envs/orthofinder/bin:${PATH}"
+export LD_LIBRARY_PATH="${HOME}/miniconda3/envs/orthofinder/lib:${LD_LIBRARY_PATH}"
+
+#Identify orthogroups between A thaliana, O sativa, and  A trichopoda using the primary protein sequence from each 
+orthofinder -f Orthofind
+
+#Press 'I' 
+:w
+:x
+
+#Determine how many ortho groups were identified by Orthofinder
+wc -l < /mnt/home/klevenba/plb812/data/Orthofind/OrthoFinder/Results_Dec01/Phylogenetic_Hierarchical_Orthogroups/N0.tsv
+#17405
+
+#Determine how many rice gene orthologs there are for A thaliana Chalcone Synthase (AT5G13930)
+grep AT5G13930 /mnt/home/klevenba/plb812/data/Orthofind/OrthoFinder/Results_Dec01/Phylogenetic_Hierarchical_Orthogroups/N0.tsv
+#N0.HOG0012412   OG0011799       -       AT5G13930.1     evm_27.model.AmTr_v1.0_scaffold00039.31 LOC_Os11g32650.1
+
+#Create a results file for the total number of orthologs and number of A thaliana Chalcone Synthase orthologs
+#Create this methods text file
+#Push the results.txt and methods.txt file to my git hub plb812 repository to the assignment9 directory
+git add assignment9
+git commit 
+git push
